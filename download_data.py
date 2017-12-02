@@ -79,9 +79,14 @@ except: pass
 
 all_materias_ids= get_all_materias_ids()
 for mat_id in all_materias_ids:
-	print mat_id, datetime.datetime.now()
-	mat =get_materia(mat_id)
-	fout=open(os.path.join(path_materias,mat_id+'.json'),'w')
-	json.dump(mat,fout)
-	fout.close()
-	
+	try: 
+		print mat_id, datetime.datetime.now()
+		mat =get_materia(mat_id)
+		fout=open(os.path.join(path_materias,mat_id+'.json'),'w')
+		json.dump(mat,fout)
+		fout.close()
+	except:
+		fout = open('log.error','a')
+		fout.write('fallo mat_id:'+mat_id+"\n")
+		fout.close()
+		
