@@ -9,47 +9,91 @@ from StringIO import StringIO
 import numpy as np
 from collections import Counter
 from collections import  defaultdict
+import datetime 
+import multiprocessing
 
-FNAME_SCALE= 'scale.json'
-IMG_WIDTH=29
+""" map con multiprocessing"""
+def map_multi( f, l, cpu_n= multiprocessing.cpu_count()):
+        pool = multiprocessing.Pool(cpu_n)
+        res = pool.map( f, l)
+        pool.close()
+        pool.join()
+        return res
 
+
+
+""" str base64 -> img opencv """
 def readb64(base64_string):
 	sbuf = StringIO()
 	sbuf.write(base64.b64decode(base64_string))
 	pimg = Image.open(sbuf)
 	return cv2.cvtColor(np.array(pimg), cv2.COLOR_RGB2BGR)
 
+""" obtener el color mas popular de una imagen, sacando blancos"""
 def most_popular_color(img):
-	cn =Counter(["_".join(map(str,l)) for pix in img.tolist() for l in pix if not min(l)==255 and np.mean(l)<200])
-	return map(int,cn.most_common(1)[0][0].split("_"))
+	try:
+		cn =Counter(["_".join(map(str,l)) for pix in img.tolist() for l in pix if not min(l)==255 and np.mean(l)<200])
+		return map(int,cn.most_common(1)[0][0].split("_"))
+	except: return [np.nan,np.nan,np.nan]
 
 def split_list_of_circles(img): return [img[:,i*IMG_WIDTH:(i+1)*IMG_WIDTH,:] for i in range( int(np.ceil(img.shape[1]/float(IMG_WIDTH))))]
 		
-
+""" para generar escala """
 def create_scale():
-	res =[]
-	scale=cv2.imread('scale.png')
-	for i in range(27):
-		w=IMG_WIDTH
-		sub_img= scale[:,i*w:(i+1)*w,:]
-		#~ cv2.imwrite(str(i)+".png",sub_img)
-		pix = most_popular_color(sub_img)
-		pattern=np.array([[pix for ii in range(10)] for _ in range(10)])
-		#~ cv2.imwrite('pattern_%d.png' % i , pattern)
-		res.append(pix)
-	
-	fout = open(FNAME_SCALE,'w')
-	json.dump(res,fout)
-	fout.close()
+	path_colors_pattern='color_patrones'
+	return np.array([cv2.imread(os.path.join(path_colors_pattern,fn))[0] for fn in sorted(os.listdir(path_colors_pattern))])
 	
 
+""" dada img devuelvo una lista con valores, error <0.11"""
 def parse_scale(img):
-	scales=[1,1.2,1.3,1.5,1.6,1.8,1.9,2.1,2.2,2.4,2.5,2.7,2.8,3.0,3.2,3.3,3.5,3.6,3.8,3.9,4.1,4.2,4.4,4.5,4.7,4.8,5.0]
-	fl = open(FNAME_SCALE)
-	pix_colors=np.array(json.load(fl))
-	fl.close()
+	scales=np.linspace(1,5,41)
 	color_per_score = map(most_popular_color,split_list_of_circles(img))
-	return [scales[np.argmin(abs(pix_colors-a).sum(1))] for a in color_per_score]
+	def rate(a):
+		try: return scales[np.nanargmin((abs(pix_colors-np.array(a))).sum(2).sum(1))]
+		except: return np.nan		
+	return [rate(a) for a in color_per_score]
 	
+""" data una materias con los scores en imagenes en base64, las
+reemplazo por lista de numeros
+"""
+def process_materia(fn):	
+	try:
+		fin=open(os.path.join(path,fn))
+		d=json.load(fin)
+		fin.close()
+		for a_i in range(len(d)):
+			d[a_i]['materia_scores']=parse_scale(readb64(d[a_i]['materia_img_scores']))
+			del d[a_i]['materia_img_scores']
+			for curso_i in range(len(d[a_i]['cursos'])):
+				r= d[a_i]['cursos'][curso_i]
+				r['turno_score']=parse_scale(readb64(r['turno_score_img']))
+				del r['turno_score_img']
+				for turno_doc_i in range(len(d[a_i]['cursos'][curso_i]['turno_docentes'])):
+					r=d[a_i]['cursos'][curso_i]['turno_docentes'][turno_doc_i]
+					r['docente_score']=parse_scale(readb64(r['docente_img_score']))
+					del r['docente_img_score']
+		return d
+	except:
+		fout = open('fallo_parsing.log','a')
+		fout.write(fn+"\n")
+		fout.close()
+
+def process_all_files():
+	pix_colors = create_scale()
+	all_mats=[]
+	
+	for ipack in range(100):
+		pack = sorted(os.listdir(path))[ipack::100]
+		print ipack,100,datetime.datetime.now()
+		all_mats+=map_multi(process_materia,pack)
+	
+	fout=open('data.json','w')
+	json.dump(all_mats,fout)
+	fout.close()
+
+IMG_WIDTH=29
+path='materias_dump'
+	
+process_all_files()
 
 
