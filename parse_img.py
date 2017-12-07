@@ -79,18 +79,19 @@ def process_materia(fn):
 		fout.close()
 
 def process_all_files():
-	pix_colors = create_scale()
 	all_mats=[]
 	
 	for ipack in range(100):
 		pack = sorted(os.listdir(path))[ipack::100]
 		print ipack,100,datetime.datetime.now()
 		all_mats+=map_multi(process_materia,pack)
-	
-	fout=open('data.json','w')
-	json.dump(all_mats,fout)
-	fout.close()
+		
+		fout=open('data.json','w')
+		json.dump(all_mats,fout)
+		fout.close()
 
+
+pix_colors = create_scale()
 IMG_WIDTH=29
 path='materias_dump'
 	
