@@ -70,7 +70,7 @@ def get_all_materias_ids():
 	all_materias_ids=[]
 	for d in range(0,62):
 		html=get_url("http://encuestas_finales.exactas.uba.ar/lists/l_mats_%d.html" %d).read()
-		all_materias_ids+=[a.attrs['href'][5:-5] for a in bs4.BeautifulSoup(html).find_all('a') if "mat" in a.attrs['href']]
+		all_materias_ids+=[(a.attrs['href'][5:-5],a.text) for a in bs4.BeautifulSoup(html).find_all('a') if "mat" in a.attrs['href']]
 	return all_materias_ids
 
 path_materias='materias_dump'	
@@ -78,10 +78,12 @@ try: os.mkdir(path_materias)
 except: pass
 
 all_materias_ids= get_all_materias_ids()
-for mat_id in all_materias_ids:
+for mat_id,mat_name in all_materias_ids:
 	try: 
 		print mat_id, datetime.datetime.now()
 		mat =get_materia(mat_id)
+		for mi in range(len(mat)):
+			mat[mi]['mat_nombre']=mat_name
 		fout=open(os.path.join(path_materias,mat_id+'.json'),'w')
 		json.dump(mat,fout)
 		fout.close()
