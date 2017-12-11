@@ -34,7 +34,8 @@ def parse_turnos(scores_turnos,docentes_turnos):
 		except: 
 			r_t['turno_comentarios_link']=''
 			r_t['turno_comentarios']=[]
-		r_t['turno_docentes']=parse_docentes(dt)
+		try: r_t['turno_docentes']=parse_docentes(dt)
+		except: r_t['turno_docentes']=[]
 		r_turnos.append(r_t)
 	return r_turnos
 	
@@ -78,6 +79,9 @@ try: os.mkdir(path_materias)
 except: pass
 
 all_materias_ids= get_all_materias_ids()
+already_done=set([a.split(".")[0] for a in os.listdir('materias_dump/')])
+all_materias_ids=[a for a in all_materias_ids if not a[0] in already_done]
+
 for mat_id,mat_name in all_materias_ids:
 	try: 
 		print mat_id, datetime.datetime.now()
